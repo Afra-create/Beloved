@@ -1,0 +1,364 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: Digibouquet API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: bouquets
+    description: Bouquet operations
+  - name: feedback
+    description: Feedback operations
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /bouquets:
+    post:
+      operationId: createBouquet
+      tags: [bouquets]
+      summary: Create and send a bouquet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBouquetRequest"
+      responses:
+        "201":
+          description: Bouquet created and email sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BouquetCreatedResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /bouquets/{id}:
+    get:
+      operationId: getBouquet
+      tags: [bouquets]
+      summary: Get a bouquet by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Bouquet found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Bouquet"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /bouquets/{id}/premium:
+    patch:
+      operationId: upgradeBouquetToPremium
+      tags: [bouquets]
+      summary: Mark a bouquet as premium after payment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpgradePremiumBody"
+      responses:
+        "200":
+          description: Bouquet upgraded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Bouquet"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /feedback:
+    post:
+      operationId: submitFeedback
+      tags: [feedback]
+      summary: Submit user feedback
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitFeedbackRequest"
+      responses:
+        "201":
+          description: Feedback submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeedbackCreatedResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    FlowerItem:
+      type: object
+      properties:
+        type:
+          type: string
+        color:
+          type: string
+        x:
+          type: number
+        y:
+          type: number
+        scale:
+          type: number
+        rotation:
+          type: number
+      required:
+        - type
+        - color
+        - x
+        - y
+        - scale
+        - rotation
+
+    WrapConfig:
+      type: object
+      properties:
+        style:
+          type: string
+        color:
+          type: string
+      required:
+        - style
+        - color
+
+    RibbonConfig:
+      type: object
+      properties:
+        style:
+          type: string
+        color:
+          type: string
+      required:
+        - style
+        - color
+
+    AccessoryItem:
+      type: object
+      properties:
+        type:
+          type: string
+        label:
+          type: string
+      required:
+        - type
+        - label
+
+    BouquetJson:
+      type: object
+      properties:
+        flowers:
+          type: array
+          items:
+            $ref: "#/components/schemas/FlowerItem"
+        wrap:
+          $ref: "#/components/schemas/WrapConfig"
+        ribbon:
+          $ref: "#/components/schemas/RibbonConfig"
+        greenery:
+          type: array
+          items:
+            type: string
+        accessories:
+          type: array
+          items:
+            $ref: "#/components/schemas/AccessoryItem"
+        mode:
+          type: string
+          enum: ["2d", "3d"]
+        nameplate:
+          type: ["string", "null"]
+        tag_text:
+          type: ["string", "null"]
+      required:
+        - flowers
+        - wrap
+        - ribbon
+        - greenery
+        - accessories
+        - mode
+
+    CreateBouquetRequest:
+      type: object
+      properties:
+        bouquet_json:
+          $ref: "#/components/schemas/BouquetJson"
+        recipient_name:
+          type: string
+        recipient_email:
+          type: string
+        sender_name:
+          type: ["string", "null"]
+        sender_email:
+          type: ["string", "null"]
+        occasion:
+          type: ["string", "null"]
+        letter_text:
+          type: ["string", "null"]
+      required:
+        - bouquet_json
+        - recipient_name
+        - recipient_email
+
+    BouquetCreatedResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        share_url:
+          type: string
+      required:
+        - id
+        - share_url
+
+    Bouquet:
+      type: object
+      properties:
+        id:
+          type: string
+        created_at:
+          type: string
+        expires_at:
+          type: string
+        bouquet_json:
+          $ref: "#/components/schemas/BouquetJson"
+        is_premium:
+          type: boolean
+        recipient_name:
+          type: string
+        recipient_email:
+          type: string
+        sender_name:
+          type: ["string", "null"]
+        sender_email:
+          type: ["string", "null"]
+        occasion:
+          type: ["string", "null"]
+        letter_text:
+          type: ["string", "null"]
+        audio_url:
+          type: ["string", "null"]
+        photo_urls:
+          type: ["array", "null"]
+          items:
+            type: string
+        music_track:
+          type: ["string", "null"]
+        payment_id:
+          type: ["string", "null"]
+      required:
+        - id
+        - created_at
+        - expires_at
+        - bouquet_json
+        - is_premium
+        - recipient_name
+        - recipient_email
+
+    UpgradePremiumBody:
+      type: object
+      properties:
+        payment_id:
+          type: string
+      required:
+        - payment_id
+
+    SubmitFeedbackRequest:
+      type: object
+      properties:
+        name:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        type:
+          type: string
+          enum: ["Bug", "Feature", "Love", "Other"]
+        message:
+          type: string
+      required:
+        - rating
+        - type
+        - message
+
+    FeedbackCreatedResponse:
+      type: object
+      properties:
+        id:
+          type: string
+      required:
+        - id
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error

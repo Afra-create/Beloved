@@ -1,0 +1,371 @@
+You are building a full-stack animated floral gifting website called **Digibouquet**.
+No user login is required at any point. Anyone can build and send a digital bouquet
+via email link — no accounts, no passwords.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BRANDING & THEME
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Name: Digibouquet
+Tagline: "Beautiful flowers, delivered digitally."
+
+Typography:
+- Headings: Playfair Display or Cormorant Garamond (romantic serif)
+- Body: DM Sans or Nunito (warm, readable sans-serif)
+
+Light mode:
+- Background: #fff8f4 (cream)
+- Primary surface: #ffd6e0 (baby pink)
+- Accent: #fde89a (warm yellow)
+- Deep accent: #c45c78 (deep rose)
+- Text: #3a1a22
+
+Dark mode:
+- Background: #3e2018 (medium warm brown)
+- Surface: #5c2e1a (caramel brown)
+- Accent: #d4a017 (golden yellow)
+- Highlight text: #f5dfc5 (soft cream)
+- Text: #f0e0d0
+
+Animations (required on every page):
+- Landing page: SVG petals drift slowly top to bottom (CSS keyframes,
+  8–14s randomized duration, slight horizontal sway)
+- Page transitions: slide + fade using Framer Motion AnimatePresence
+- Buttons: gentle scale + bloom glow on hover
+- Hero title: letter-by-letter staggered bloom-in animation
+- Step progress: petal-shaped dots that fill with color on completion
+- Flower selection: spring-bounce scale on click, pink ring pulse on selected state
+- Canvas drop: flowers spring-bounce when placed into the bouquet area
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TECH STACK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Frontend: Next.js 14 (App Router), React, Tailwind CSS,
+          Framer Motion, Konva.js (2D canvas), Three.js (3D scene)
+Backend:  Next.js API routes (serverless)
+Database: Supabase (postgres + file storage)
+Email:    Resend (resend.com) for transactional emails
+Payments: Razorpay (primary, India) + Stripe (fallback)
+Media:    Cloudinary or Supabase Storage for photos and audio
+Audio:    Web Audio API for voice waveform visualizer
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DATABASE SCHEMA (Supabase)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Table: bouquets
+- id               UUID PRIMARY KEY (auto-generated)
+- created_at       TIMESTAMP
+- expires_at       TIMESTAMP (created_at + 90 days)
+- bouquet_json     JSONB  (full bouquet state — see shape below)
+- is_premium       BOOLEAN DEFAULT false
+- recipient_name   TEXT
+- recipient_email  TEXT
+- sender_name      TEXT (optional)
+- sender_email     TEXT (optional)
+- occasion         TEXT
+- letter_text      TEXT
+- audio_url        TEXT (premium)
+- photo_urls       TEXT[] (premium)
+- music_track      TEXT (premium)
+- payment_id       TEXT
+
+Table: feedback
+- id          UUID PRIMARY KEY
+- created_at  TIMESTAMP
+- name        TEXT
+- email       TEXT
+- rating      INT (1–5)
+- type        TEXT (Bug | Feature | Love | Other)
+- message     TEXT
+
+Bouquet JSON shape:
+{
+  "flowers":   [{ "type": string, "color": string, "x": float,
+                  "y": float, "scale": float, "rotation": float }],
+  "wrap":      { "style": string, "color": string },
+  "ribbon":    { "style": string, "color": string },
+  "greenery":  [string],
+  "accessories": [{ "type": string, "label": string }],
+  "mode":      "2d" | "3d",
+  "nameplate": string,
+  "tag_text":  string
+}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PAGES & ROUTES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+/                  → Landing page
+/build             → Multi-step bouquet builder (free tier, 2D)
+/build/premium     → Premium upgrade modal/flow
+/bouquet/[id]      → Recipient view page (public, no login)
+/guide             → How-to / user guide
+/feedback          → Feedback form
+/confirm           → Sender confirmation after sending
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PAGE 1 — LANDING ( / )
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+- Animated petal drift across full screen (background layer)
+- Large logo: "Digibouquet" in serif display font
+- Tagline beneath: "Beautiful flowers, delivered digitally."
+- Three CTA buttons:
+    [BUILD A BOUQUET]       → /build  (filled, dark)
+    [BUILD IN BLACK & WHITE] → /build?mode=bw  (outlined)
+    [VIEW GARDEN]           → shows a public gallery of recent bouquets (optional v2)
+- Dark/light mode toggle in top-right corner
+- Footer: "Made with 🌸 | Guide | Feedback | © Digibouquet"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PAGE 2 — BOUQUET BUILDER ( /build ) — FREE TIER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Multi-step wizard. Progress shown as petal-dot indicators at the top.
+Steps slide in/out with Framer Motion AnimatePresence.
+
+── STEP 1: Pick Blooms ──
+- Display 14 illustrated flower cards in a responsive grid
+  (rose, peony, lily, daisy, sunflower, orchid, tulip, lavender,
+   carnation, anemone, ranunculus, baby's breath, poppy, freesia)
+- Each card: flower illustration + name + short meaning tooltip on hover
+- User selects 6 to 10 flowers. Selected = pink ring + bounce animation.
+- Counter shows "X / 10 blooms selected"
+- [NEXT] button enabled only when ≥ 6 selected
+
+── STEP 2: Wrap & Accessories ──
+Wrap styles (6 options, illustrated swatches):
+  kraft paper | satin ribbon | lace | newspaper | floral cellophane | hessian rustic
+Each wrap has a color picker (6 preset swatches + custom hex input).
+
+Accessories (toggle on/off chips):
+  Satin bow | Twine knot | Wax seal | Name plate | Gift tag
+
+- Name plate: if toggled, show a text input "Recipient's name"
+  (rendered as an engraved plate on the bouquet)
+- Gift tag: if toggled, show a text input "Short line for the tag"
+  (max 40 characters, shown as a small dangling tag)
+
+── STEP 3: Arrange (2D Canvas) ──
+- Konva.js canvas, ~500×500px, cream background
+- Flowers placed using auto-arrange algorithm:
+    • Largest bloom at center
+    • Remaining blooms radiate outward in a spiral
+    • Each gets rotation: random ±20°, slight scale variation
+    • Greenery (fern, eucalyptus, baby's breath) auto-fills gaps
+- User can drag any flower to reposition
+- Buttons: [TRY NEW ARRANGEMENT] (re-randomizes layout)
+            [CHANGE GREENERY] (cycles through greenery types)
+- [3D MODE] button → triggers premium upgrade modal
+
+── STEP 4: Add a Letter ──
+- Styled notepad textarea (decorative top border, lined paper texture)
+- Choose paper style: plain | lined | floral border | vintage aged
+- Placeholder: "Write something from the heart…"
+- Character count shown, no hard limit
+- Completely optional — user can skip
+
+── STEP 5: Deliver ──
+Fields:
+  - Recipient's name (required)
+  - Recipient's email (required)
+  - Your name / from (optional)
+  - Occasion (illustrated pill buttons):
+      Birthday | Anniversary | Just Because | Get Well |
+      Congratulations | Thank You | Miss You | Friendship
+[SEND MY BOUQUET 🌸] button → POST to /api/send
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PREMIUM FEATURES & PAYWALL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Triggered when user taps [3D MODE], [ADD VOICE NOTE],
+[ADD PHOTOS], or [ADD MUSIC] anywhere in the builder.
+
+Premium modal:
+- Animated petals in background
+- Heading: "Make it unforgettable ✨"
+- List what they unlock (icons + short labels):
+    🌺 3D rotating bouquet    🎙️ Voice note (60 sec)
+    📷 Photo slideshow (5)    🎵 Background music
+- Price: show clearly (e.g. ₹99 / $1.99 per bouquet)
+- CTA: [UNLOCK PREMIUM 💛]  → Razorpay / Stripe checkout
+- On payment success: webhook → set is_premium = true
+  in DB, re-render builder with premium tabs unlocked
+
+── PREMIUM FEATURE: 3D Bouquet (Three.js) ──
+- Flowers as PlaneGeometry billboards with transparent PNG textures
+- Arranged in a 3D cluster with z-depth offsets
+- Scene auto-rotates slowly (y-axis)
+- OrbitControls: user can grab and spin
+- Wrap as CylinderGeometry mesh, ribbon as TorusGeometry
+- Soft bloom post-processing via EffectComposer (UnrealBloomPass)
+- Lighting: warm AmbientLight + soft DirectionalLight from top-left
+
+── PREMIUM FEATURE: Voice Note ──
+- Record up to 60 seconds using MediaRecorder API
+- Live waveform visualizer (Web Audio API, animated bars in pink/yellow)
+- Playback controls on recipient page
+- Upload audio blob to Supabase Storage, store URL in audio_url field
+
+── PREMIUM FEATURE: Photo Upload ──
+- Upload 1–5 photos (JPG/PNG, max 5MB each)
+- Preview as Polaroid-style thumbnails in builder
+- On recipient page: auto-playing Polaroid slideshow carousel
+- Store via Cloudinary upload preset or Supabase Storage
+
+── PREMIUM FEATURE: Background Music ──
+- 8 curated royalty-free tracks offered as selectable cards:
+    Soft Piano | Acoustic Guitar | Lo-fi Floral | Classical Waltz |
+    Ukulele Joy | Ambient Strings | Jazz Café | Rainy Day Chill
+- 15-second preview clip plays on hover/tap
+- Selected track plays softly on recipient page
+- Mute/unmute toggle visible to recipient
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+API ROUTES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+POST /api/send
+  Body: { bouquet_json, recipient_name, recipient_email,
+          sender_name, occasion, letter_text }
+  Actions:
+    1. Insert row into bouquets table, get UUID
+    2. Send email via Resend to recipient_email:
+       Subject: "You've received a digital bouquet 💐 from [sender_name]"
+       Body: HTML email template — occasion badge, sender name,
+             bouquet preview image (OG thumbnail), large CTA button
+             "Open your bouquet →" → yourdomain.com/bouquet/[uuid]
+    3. Return { id, share_url } to client
+
+POST /api/payment/webhook
+  Verify Razorpay/Stripe signature
+  Update bouquets set is_premium = true where payment_id = X
+
+GET /api/bouquet/[id]
+  Return bouquet row from Supabase by UUID
+
+POST /api/feedback
+  Insert into feedback table
+  Send admin notification email via Resend
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PAGE 3 — RECIPIENT VIEW ( /bouquet/[id] )
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+- Fetch bouquet JSON by UUID from Supabase
+- Reconstruct 2D canvas (Konva) OR 3D scene (Three.js) based on mode
+- Show occasion badge at top (e.g. "🎂 Birthday")
+- Show "From: [sender_name]" in italic serif
+- Show letter below bouquet (styled as the chosen paper texture)
+- If premium and audio_url: show waveform audio player
+- If premium and photo_urls: show Polaroid carousel (auto-plays, swipeable)
+- If premium and music_track: autoplay background music at 30% volume,
+  show a mute toggle (🔊 / 🔇) fixed bottom-right
+- Name plate and gift tag rendered on the bouquet if present
+- Expiry notice at bottom: "This bouquet blooms until [date]"
+- CTA at bottom: [Send your own bouquet 🌸] → /
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PAGE 4 — SENDER CONFIRMATION ( /confirm )
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+- Shown immediately after a successful send
+- Bloom animation plays (flower opens from center of screen)
+- Message: "Your bouquet is on its way to [recipient_name]! 🌸"
+- Show the share link in a copyable input box
+- Two buttons:
+    [Copy link]         → copies share URL to clipboard
+    [Send another 💐]  → /build
+- Subtle confetti of petals falls for 3 seconds
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PAGE 5 — USER GUIDE ( /guide )
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Layout: vertical scroll, illustrated step cards.
+Left side: animated SVG vine that grows downward as user scrolls
+(driven by scroll position → stroke-dashoffset animation).
+
+Step cards (8 total):
+  1. How to pick your flowers
+  2. Choosing a wrap and accessories
+  3. Arranging your bouquet
+  4. Adding a personal letter
+  5. Voice notes, photos & music (premium)
+  6. How sending works
+  7. How your recipient opens it
+  8. How long bouquets are stored (90 days)
+
+FAQ accordion below (7 items):
+  - Do I need to create an account?
+  - How long does my bouquet last?
+  - Can I send to anyone?
+  - What's included in the free version?
+  - What do I get with the premium upgrade?
+  - Can the recipient download or save it?
+  - What if my recipient doesn't receive the email?
+
+Floating sticky button at bottom-right: [Start building 🌸] → /build
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PAGE 6 — FEEDBACK ( /feedback )
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Styled as a handwritten notecard on a warm wooden desk surface.
+
+Fields:
+  - Name (optional text input)
+  - Email (optional, for follow-up)
+  - Rating: 5 petal icons instead of stars — clicking petal 3
+    fills petals 1, 2, 3 in pink; animated CSS fill transition
+  - Type: radio pill buttons —
+      Bug report | Feature request | General love | Other
+  - Message: large textarea with soft paper texture
+  - Submit: styled as a wax seal stamp button
+
+On submit:
+  - POST to /api/feedback
+  - Store in Supabase feedback table
+  - Send admin notification email via Resend
+  - Show thank-you animation:
+      A small bouquet blooms in the center of the screen,
+      text fades in: "Your flowers of feedback have been received 🌸"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+NAVIGATION & GLOBAL COMPONENTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Navbar (minimal, always visible):
+  Left: Digibouquet logo (serif wordmark)
+  Right: [Guide] [Feedback] [🌙/☀️ theme toggle]
+
+Footer:
+  "Made with 🌸 · Digibouquet · Guide · Feedback · © 2026"
+
+Global:
+  - Respect prefers-reduced-motion (disable petal drift and animations)
+  - All images have alt text
+  - Keyboard navigable (focus rings in deep rose color)
+  - Mobile responsive — builder steps stack vertically on small screens
+  - Canvas shrinks to 100% viewport width on mobile
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ENVIRONMENT VARIABLES NEEDED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY
+SUPABASE_SERVICE_ROLE_KEY
+RESEND_API_KEY
+RAZORPAY_KEY_ID
+RAZORPAY_KEY_SECRET
+RAZORPAY_WEBHOOK_SECRET
+STRIPE_SECRET_KEY          (fallback)
+STRIPE_WEBHOOK_SECRET      (fallback)
+CLOUDINARY_CLOUD_NAME      (if using Cloudinary)
+CLOUDINARY_UPLOAD_PRESET
+NEXT_PUBLIC_BASE_URL       (your deployed domain)
+ADMIN_EMAIL                (receives feedback notifications)
